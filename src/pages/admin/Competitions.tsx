@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Calendar, Clock, Eye, EyeOff, Trophy, Trash2, Edit } from 'lucide-react';
+import { Plus, Calendar, Clock, Eye, EyeOff, Trophy, Trash2, Edit, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -100,7 +100,22 @@ export default function Competitions() {
         .update({ show_results: !currentState })
         .eq('id', id);
       if (error) throw error;
-      toast.success(currentState ? 'Results hidden' : 'Results visible to students');
+      toast.success(currentState ? 'Marks hidden' : 'Marks visible to students');
+      fetchCompetitions();
+    } catch (error) {
+      console.error('Error updating competition:', error);
+      toast.error('Failed to update competition');
+    }
+  }
+
+  async function toggleDetailedResults(id: string, currentState: boolean) {
+    try {
+      const { error } = await supabase
+        .from('competitions')
+        .update({ show_detailed_results: !currentState })
+        .eq('id', id);
+      if (error) throw error;
+      toast.success(currentState ? 'Detailed results hidden' : 'Answer review visible to students');
       fetchCompetitions();
     } catch (error) {
       console.error('Error updating competition:', error);
@@ -173,8 +188,8 @@ export default function Competitions() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Competitions</h1>
-          <p className="text-muted-foreground mt-1">Manage your test competitions</p>
+          <h1 className="text-3xl font-bold text-foreground font-display">COMPETITIONS</h1>
+          <p className="text-muted-foreground mt-1">Create and manage your battles</p>
         </div>
         
         <Dialog open={dialogOpen} onOpenChange={(open) => {
@@ -182,14 +197,14 @@ export default function Competitions() {
           if (!open) resetForm();
         }}>
           <DialogTrigger asChild>
-            <Button className="gradient-primary text-primary-foreground shadow-primary">
+            <Button className="gradient-primary text-primary-foreground shadow-primary compete-btn">
               <Plus className="w-4 h-4 mr-2" />
               Create Competition
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg glass-card">
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Edit Competition' : 'Create New Competition'}</DialogTitle>
+              <DialogTitle className="font-display">{editingId ? 'EDIT COMPETITION' : 'CREATE NEW BATTLE'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -298,7 +313,7 @@ export default function Competitions() {
               </div>
 
               <Button type="submit" className="w-full gradient-primary text-primary-foreground">
-                {editingId ? 'Update Competition' : 'Create Competition'}
+                {editingId ? 'Update Competition' : 'Launch Competition'}
               </Button>
             </form>
           </DialogContent>
@@ -308,29 +323,29 @@ export default function Competitions() {
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : competitions.length === 0 ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed glass-card">
           <CardContent className="py-12 text-center">
             <Trophy className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-foreground mb-1">No competitions yet</h3>
+            <h3 className="font-bold text-foreground mb-1 font-display">NO BATTLES YET</h3>
             <p className="text-sm text-muted-foreground">Create your first competition to get started</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
           {competitions.map((comp) => (
-            <Card key={comp.id} className="border-border/50 hover:border-primary/30 transition-colors">
+            <Card key={comp.id} className="glass-card hover:border-primary/50 hover:shadow-primary transition-all duration-300">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div 
-                        className="w-3 h-3 rounded-full"
+                        className="w-4 h-4 rounded-full shadow-lg"
                         style={{ backgroundColor: comp.primary_color }}
                       />
-                      <h3 className="font-semibold text-lg text-foreground">{comp.name}</h3>
+                      <h3 className="font-bold text-lg text-foreground font-display">{comp.name}</h3>
                       {comp.is_active && (
-                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-success/20 text-success">
-                          Active
+                        <span className="px-3 py-1 text-xs font-bold rounded-full bg-accent/20 text-accent font-display">
+                          LIVE
                         </span>
                       )}
                     </div>
@@ -353,17 +368,24 @@ export default function Competitions() {
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col gap-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Active</span>
+                        <span className="text-muted-foreground">Live</span>
                         <Switch
                           checked={comp.is_active}
                           onCheckedChange={() => toggleActive(comp.id, comp.is_active)}
                         />
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Results</span>
+                        <span className="text-muted-foreground">Marks</span>
                         <Switch
                           checked={comp.show_results}
                           onCheckedChange={() => toggleResults(comp.id, comp.show_results)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">Answers</span>
+                        <Switch
+                          checked={comp.show_detailed_results || false}
+                          onCheckedChange={() => toggleDetailedResults(comp.id, comp.show_detailed_results || false)}
                         />
                       </div>
                       <div className="flex items-center justify-between gap-3">
@@ -380,6 +402,7 @@ export default function Competitions() {
                         variant="outline"
                         size="sm"
                         onClick={() => openEdit(comp)}
+                        className="border-primary/30 hover:bg-primary/10"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>

@@ -19,6 +19,7 @@ export interface Competition {
   is_active: boolean;
   show_results: boolean;
   show_leaderboard: boolean;
+  show_detailed_results: boolean;
   created_at: string;
   updated_at: string;
 }

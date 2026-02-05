@@ -50,6 +50,7 @@ export type Database = {
           name: string
           primary_color: string | null
           secondary_color: string | null
+          show_detailed_results: boolean | null
           show_leaderboard: boolean | null
           show_results: boolean | null
           start_time: string
@@ -66,6 +67,7 @@ export type Database = {
           name: string
           primary_color?: string | null
           secondary_color?: string | null
+          show_detailed_results?: boolean | null
           show_leaderboard?: boolean | null
           show_results?: boolean | null
           start_time: string
@@ -82,6 +84,7 @@ export type Database = {
           name?: string
           primary_color?: string | null
           secondary_color?: string | null
+          show_detailed_results?: boolean | null
           show_leaderboard?: boolean | null
           show_results?: boolean | null
           start_time?: string

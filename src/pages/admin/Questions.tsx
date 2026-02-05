@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Image, Trash2, Edit, FileQuestion } from 'lucide-react';
+import { Plus, Image, Trash2, Edit, FileQuestion, Upload, FileImage, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,9 @@ export default function Questions() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
   
   const [formData, setFormData] = useState({
     question_text: '',
@@ -158,12 +161,103 @@ export default function Questions() {
     setDialogOpen(true);
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `questions/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, image_url: publicUrl });
+      toast.success('Image uploaded successfully!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setOcrProcessing(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocr-questions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: formDataUpload,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'OCR processing failed');
+      }
+
+      const { questions: extractedQuestions } = await response.json();
+      
+      if (!extractedQuestions || extractedQuestions.length === 0) {
+        toast.error('No questions could be extracted from the image');
+        return;
+      }
+
+      // Add all extracted questions to the database
+      let addedCount = 0;
+      for (const q of extractedQuestions) {
+        const nextNumber = questions.length + addedCount + 1;
+        const { error } = await supabase
+          .from('questions')
+          .insert([{
+            competition_id: selectedCompetition,
+            question_number: nextNumber,
+            question_text: q.question_text,
+            option_a: q.option_a || '',
+            option_b: q.option_b || '',
+            option_c: q.option_c || '',
+            option_d: q.option_d || '',
+            correct_answer: q.correct_answer || 'A',
+            marks: q.marks || 1,
+          }]);
+        
+        if (!error) addedCount++;
+      }
+
+      toast.success(`Successfully imported ${addedCount} questions!`);
+      setOcrDialogOpen(false);
+      fetchQuestions(selectedCompetition);
+    } catch (error) {
+      console.error('OCR error:', error);
+      toast.error(error instanceof Error ? error.message : 'OCR processing failed');
+    } finally {
+      setOcrProcessing(false);
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Questions</h1>
-          <p className="text-muted-foreground mt-1">Manage MCQ questions for your competitions</p>
+          <h1 className="text-3xl font-bold text-foreground font-display">QUESTIONS</h1>
+          <p className="text-muted-foreground mt-1">Build your question arsenal</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -178,42 +272,101 @@ export default function Questions() {
             </SelectContent>
           </Select>
 
+          {/* OCR Upload Dialog */}
+          <Dialog open={ocrDialogOpen} onOpenChange={setOcrDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline"
+                className="border-accent/50 text-accent hover:bg-accent/10"
+                disabled={!selectedCompetition}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                OCR Import
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="glass-card">
+              <DialogHeader>
+                <DialogTitle className="font-display">OCR QUESTION IMPORT</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  Upload an image or PDF of your question paper. Supports Tamil & English languages.
+                </p>
+                <div className="border-2 border-dashed border-border rounded-xl p-8 text-center">
+                  {ocrProcessing ? (
+                    <div className="space-y-4">
+                      <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
+                      <p className="text-muted-foreground">Processing with AI...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <FileImage className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Drag & drop or click to upload<br />
+                        <span className="text-xs">PDF, JPG, PNG, Word documents</span>
+                      </p>
+                      <Input
+                        type="file"
+                        accept="image/*,.pdf,.doc,.docx"
+                        onChange={handleOcrUpload}
+                        className="cursor-pointer"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             setDialogOpen(open);
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
               <Button 
-                className="gradient-primary text-primary-foreground shadow-primary"
+                className="gradient-primary text-primary-foreground shadow-primary compete-btn"
                 disabled={!selectedCompetition}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Question
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto glass-card">
               <DialogHeader>
-                <DialogTitle>{editingId ? 'Edit Question' : 'Add New Question'}</DialogTitle>
+                <DialogTitle className="font-display">{editingId ? 'EDIT QUESTION' : 'ADD NEW QUESTION'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="question">Question</Label>
+                  <Label htmlFor="question">Question (Tamil/English supported)</Label>
                   <Textarea
                     id="question"
                     value={formData.question_text}
                     onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
-                    placeholder="Enter your question here..."
+                    placeholder="உங்கள் கேள்வியை இங்கே உள்ளிடவும் / Enter your question here..."
                     rows={3}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="image">Image URL (Optional)</Label>
-                  <div className="flex gap-2">
-                    <Image className="w-5 h-5 mt-2 text-muted-foreground" />
+                  <Label>Question Image (Optional)</Label>
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <div className="flex gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={uploading}
+                          className="flex-1"
+                        />
+                        {uploading && <Loader2 className="w-5 h-5 animate-spin" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Or paste an image URL below:</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
                     <Input
-                      id="image"
                       value={formData.image_url}
                       onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                       placeholder="https://example.com/image.jpg"
@@ -223,7 +376,7 @@ export default function Questions() {
                     <img 
                       src={formData.image_url} 
                       alt="Preview" 
-                      className="mt-2 max-h-32 rounded-lg object-contain"
+                      className="mt-2 max-h-32 rounded-lg object-contain border border-border"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
                   )}
@@ -297,7 +450,7 @@ export default function Questions() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full gradient-primary text-primary-foreground">
+                <Button type="submit" className="w-full gradient-primary text-primary-foreground compete-btn">
                   {editingId ? 'Update Question' : 'Add Question'}
                 </Button>
               </form>
@@ -307,29 +460,29 @@ export default function Questions() {
       </div>
 
       {!selectedCompetition ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed glass-card">
           <CardContent className="py-12 text-center">
             <FileQuestion className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-foreground mb-1">Select a competition</h3>
+            <h3 className="font-bold text-foreground mb-1 font-display">SELECT A COMPETITION</h3>
             <p className="text-sm text-muted-foreground">Choose a competition to manage its questions</p>
           </CardContent>
         </Card>
       ) : questions.length === 0 ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed glass-card">
           <CardContent className="py-12 text-center">
             <FileQuestion className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-foreground mb-1">No questions yet</h3>
-            <p className="text-sm text-muted-foreground">Add questions to this competition</p>
+            <h3 className="font-bold text-foreground mb-1 font-display">NO QUESTIONS YET</h3>
+            <p className="text-sm text-muted-foreground">Add questions manually or use OCR Import</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {questions.map((q, index) => (
-            <Card key={q.id} className="border-border/50">
+            <Card key={q.id} className="glass-card hover:border-primary/30 transition-all">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="font-semibold text-primary">{q.question_number}</span>
+                  <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0 shadow-primary">
+                    <span className="font-bold text-primary-foreground font-display">{q.question_number}</span>
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-foreground mb-3">{q.question_text}</p>
@@ -337,7 +490,7 @@ export default function Questions() {
                       <img 
                         src={q.image_url} 
                         alt="Question" 
-                        className="mb-3 max-h-32 rounded-lg object-contain"
+                        className="mb-3 max-h-32 rounded-lg object-contain border border-border"
                       />
                     )}
                     <div className="grid grid-cols-2 gap-2 text-sm">
@@ -347,18 +500,18 @@ export default function Questions() {
                         return (
                           <div 
                             key={opt}
-                            className={`p-2 rounded-lg ${isCorrect ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}
+                            className={`p-2 rounded-lg ${isCorrect ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-muted/50 text-muted-foreground'}`}
                           >
-                            <span className="font-medium">{opt}.</span> {q[optionKey] as string}
-                            {isCorrect && <span className="ml-2">✓</span>}
+                            <span className="font-bold">{opt}.</span> {q[optionKey] as string}
+                            {isCorrect && <span className="ml-2 font-bold">✓</span>}
                           </div>
                         );
                       })}
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">Marks: {q.marks}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Points: <span className="font-bold text-primary">{q.marks}</span></p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(q)}>
+                    <Button variant="outline" size="sm" onClick={() => openEdit(q)} className="border-primary/30 hover:bg-primary/10">
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button 
