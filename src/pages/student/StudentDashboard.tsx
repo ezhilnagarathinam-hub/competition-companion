@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Calendar, Clock, Play, CheckCircle, Lock } from 'lucide-react';
+import { Trophy, Calendar, Clock, Play, CheckCircle, Lock, Zap, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudentAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -121,17 +122,17 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">My Competitions</h1>
-        <p className="text-muted-foreground mt-1">View your enrolled competitions and results</p>
+        <h1 className="text-3xl font-bold text-foreground font-display">MY <span className="neon-text">ARENA</span></h1>
+        <p className="text-muted-foreground mt-1">View your battles and scores</p>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : competitions.length === 0 ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed glass-card">
           <CardContent className="py-12 text-center">
-            <Trophy className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-foreground mb-1">No active competitions</h3>
+            <Zap className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="font-bold text-foreground mb-1 font-display">NO BATTLES YET</h3>
             <p className="text-sm text-muted-foreground">Check back later for upcoming tests</p>
           </CardContent>
         </Card>
@@ -143,15 +144,15 @@ export default function StudentDashboard() {
             const hasStarted = comp.studentStatus?.has_started;
 
             return (
-              <Card key={comp.id} className="border-border/50 overflow-hidden">
-                <div 
-                  className="h-2"
+              <Card key={comp.id} className="glass-card overflow-hidden hover:border-primary/50 transition-all">
+                <div
+                  className="h-2 shadow-lg"
                   style={{ backgroundColor: comp.primary_color }}
                 />
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg text-foreground mb-2">{comp.name}</h3>
+                      <h3 className="font-bold text-lg text-foreground mb-2 font-display">{comp.name}</h3>
                       {comp.description && (
                         <p className="text-sm text-muted-foreground mb-3">{comp.description}</p>
                       )}
@@ -170,14 +171,14 @@ export default function StudentDashboard() {
 
                     <div className="ml-4">
                       {hasSubmitted ? (
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success/10 text-success">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/20 text-accent border border-accent/30">
                           <CheckCircle className="w-5 h-5" />
-                          <span className="font-medium">Submitted</span>
+                          <span className="font-bold font-display">DONE</span>
                         </div>
                       ) : hasStarted && !canStart ? (
                         <Button
                           onClick={() => navigate(`/student/test/${comp.id}`)}
-                          className="gradient-primary text-primary-foreground shadow-primary"
+                          className="gradient-primary text-primary-foreground shadow-primary compete-btn"
                         >
                           <Play className="w-4 h-4 mr-2" />
                           Continue Test
@@ -185,15 +186,15 @@ export default function StudentDashboard() {
                       ) : canStart ? (
                         <Button
                           onClick={() => handleStartTest(comp.id)}
-                          className="gradient-primary text-primary-foreground shadow-primary"
+                          className="gradient-primary text-primary-foreground shadow-neon compete-btn energy-pulse"
                         >
-                          <Play className="w-4 h-4 mr-2" />
-                          {hasStarted ? 'Continue' : 'Start Test'}
+                          <Zap className="w-4 h-4 mr-2" />
+                          {hasStarted ? 'CONTINUE' : 'START BATTLE'}
                         </Button>
                       ) : (
                         <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground">
                           <Lock className="w-5 h-5" />
-                          <span className="font-medium">Not Available</span>
+                          <span className="font-bold">LOCKED</span>
                         </div>
                       )}
                     </div>
@@ -205,10 +206,10 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      <Card className="border-border/50">
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-primary" />
+            <Trophy className="w-5 h-5 text-primary animate-glow" />
             My Results
           </CardTitle>
         </CardHeader>
@@ -224,6 +225,9 @@ function StudentResults() {
   const { studentId } = useStudentAuth();
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [detailedAnswers, setDetailedAnswers] = useState<any[]>([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   useEffect(() => {
     if (studentId) {
@@ -251,6 +255,32 @@ function StudentResults() {
     }
   }
 
+  async function viewDetails(result: any) {
+    setSelectedResult(result);
+    setDetailsLoading(true);
+    
+    try {
+      // Fetch student answers with questions
+      const { data: answers, error } = await supabase
+        .from('student_answers')
+        .select(`
+          *,
+          questions!inner(*)
+        `)
+        .eq('student_id', studentId)
+        .eq('competition_id', result.competition_id)
+        .order('questions(question_number)');
+
+      if (error) throw error;
+      setDetailedAnswers(answers || []);
+    } catch (error) {
+      console.error('Error fetching details:', error);
+      toast.error('Failed to load details');
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
   if (loading) {
     return <p className="text-muted-foreground">Loading results...</p>;
   }
@@ -264,36 +294,131 @@ function StudentResults() {
   }
 
   return (
-    <div className="space-y-4">
-      {results.map((result) => {
-        const comp = result.competitions;
-        const showResult = comp.show_results;
+    <>
+      <div className="space-y-4">
+        {results.map((result) => {
+          const comp = result.competitions;
+          const showResult = comp.show_results;
+          const showDetails = comp.show_detailed_results;
 
-        return (
-          <div 
-            key={result.id}
-            className="flex items-center justify-between p-4 rounded-lg bg-muted/50"
-          >
-            <div>
-              <h4 className="font-medium text-foreground">{comp.name}</h4>
-              <p className="text-sm text-muted-foreground">
-                Submitted: {new Date(result.submitted_at).toLocaleString()}
-              </p>
+          return (
+            <div 
+              key={result.id}
+              className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-all"
+            >
+              <div>
+                <h4 className="font-bold text-foreground font-display">{comp.name}</h4>
+                <p className="text-sm text-muted-foreground">
+                  Submitted: {new Date(result.submitted_at).toLocaleString()}
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                {showResult ? (
+                  <>
+                    <div className="text-2xl font-bold text-primary font-display">
+                      {result.total_marks} <span className="text-sm text-muted-foreground">pts</span>
+                    </div>
+                    {showDetails && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => viewDetails(result)}
+                        className="border-accent/50 text-accent hover:bg-accent/10"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Answers
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic px-3 py-1 bg-muted/50 rounded-lg">
+                    Results coming soon...
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              {showResult ? (
-                <div className="text-2xl font-bold text-primary">
-                  {result.total_marks} marks
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground italic">
-                  Results will be announced shortly
-                </div>
-              )}
+          );
+        })}
+      </div>
+
+      {/* Detailed Results Dialog */}
+      <Dialog open={!!selectedResult} onOpenChange={() => setSelectedResult(null)}>
+        <DialogContent className="glass-card max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              ANSWER REVIEW - {selectedResult?.competitions?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {detailsLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading answers...</div>
+          ) : (
+            <div className="space-y-4">
+              {detailedAnswers.map((answer, idx) => {
+                const q = answer.questions;
+                const isCorrect = answer.is_correct;
+                const selectedAnswer = answer.selected_answer;
+                const correctAnswer = q.correct_answer;
+                
+                return (
+                  <div 
+                    key={answer.id}
+                    className={`p-4 rounded-xl border-2 ${
+                      isCorrect 
+                        ? 'border-accent/50 bg-accent/10' 
+                        : 'border-destructive/50 bg-destructive/10'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        isCorrect ? 'bg-accent text-accent-foreground' : 'bg-destructive text-destructive-foreground'
+                      }`}>
+                        {q.question_number}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-foreground font-medium">{q.question_text}</p>
+                        {q.image_url && (
+                          <img src={q.image_url} alt="Question" className="mt-2 max-h-24 rounded-lg" />
+                        )}
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                        isCorrect ? 'bg-accent/20 text-accent' : 'bg-destructive/20 text-destructive'
+                      }`}>
+                        {isCorrect ? `+${q.marks}` : '0'}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {['A', 'B', 'C', 'D'].map((opt) => {
+                        const optKey = `option_${opt.toLowerCase()}` as keyof typeof q;
+                        const isThisCorrect = correctAnswer === opt;
+                        const isThisSelected = selectedAnswer === opt;
+                        
+                        return (
+                          <div 
+                            key={opt}
+                            className={`p-2 rounded-lg ${
+                              isThisCorrect 
+                                ? 'bg-accent/20 text-accent border border-accent/50' 
+                                : isThisSelected 
+                                  ? 'bg-destructive/20 text-destructive border border-destructive/50' 
+                                  : 'bg-muted/30 text-muted-foreground'
+                            }`}
+                          >
+                            <span className="font-bold">{opt}.</span> {q[optKey] as string}
+                            {isThisCorrect && <span className="ml-2">✓</span>}
+                            {isThisSelected && !isThisCorrect && <span className="ml-2">✗</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        );
-      })}
-    </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

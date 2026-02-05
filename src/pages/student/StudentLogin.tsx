@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Trophy, Lock, User } from 'lucide-react';
+import { Zap, Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,20 +46,25 @@ export default function StudentLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-20 right-10 w-72 h-72 bg-accent/20 rounded-full blur-3xl animate-pulse-slow" />
+      <div className="absolute bottom-20 left-10 w-96 h-96 bg-primary/15 rounded-full blur-3xl animate-pulse-slow" />
+      
       <div className="w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-primary mb-4">
-            <Trophy className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl gradient-accent shadow-accent mb-4 energy-pulse">
+            <Zap className="w-10 h-10 text-accent-foreground animate-glow" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">TestMaster</h1>
-          <p className="text-muted-foreground mt-2">Student Portal</p>
+          <h1 className="text-3xl font-bold font-display">
+            <span className="neon-text">COMPETE</span> <span className="text-foreground">ME</span>
+          </h1>
+          <p className="text-muted-foreground mt-2">Enter the Arena</p>
         </div>
 
-        <Card className="border-border/50 shadow-lg">
+        <Card className="glass-card shadow-neon">
           <CardHeader className="text-center">
-            <CardTitle>Student Login</CardTitle>
-            <CardDescription>Enter your credentials to access the test portal</CardDescription>
+            <CardTitle className="font-display">PLAYER LOGIN</CardTitle>
+            <CardDescription>Enter your credentials to join the competition</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -72,7 +77,7 @@ export default function StudentLogin() {
                     placeholder="stu101"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-background/50"
                     required
                   />
                 </div>
@@ -88,7 +93,7 @@ export default function StudentLogin() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-background/50"
                     required
                   />
                 </div>
@@ -96,10 +101,10 @@ export default function StudentLogin() {
 
               <Button 
                 type="submit" 
-                className="w-full gradient-primary text-primary-foreground shadow-primary hover:opacity-90"
+                className="w-full gradient-primary text-primary-foreground shadow-primary hover:opacity-90 compete-btn h-12"
                 disabled={loading}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? 'Entering...' : 'ENTER ARENA'}
               </Button>
             </form>
 

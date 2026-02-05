@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
+        display: ['Orbitron', 'system-ui', 'sans-serif'],
+        mono: ['Orbitron', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -42,6 +43,10 @@ export default {
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+        },
+        neon: {
+          purple: "hsl(280, 85%, 60%)",
+          green: "hsl(142, 90%, 50%)",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",

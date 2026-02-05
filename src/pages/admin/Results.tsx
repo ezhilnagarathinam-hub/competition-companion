@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trophy, Medal, Award, ClipboardList } from 'lucide-react';
+import { Trophy, Medal, Award, ClipboardList, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -111,8 +111,8 @@ export default function Results() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Results & Leaderboard</h1>
-          <p className="text-muted-foreground mt-1">View student scores and rankings</p>
+          <h1 className="text-3xl font-bold text-foreground font-display">LEADERBOARD</h1>
+          <p className="text-muted-foreground mt-1">View player scores and rankings</p>
         </div>
 
         <Select value={selectedCompetition} onValueChange={setSelectedCompetition}>
@@ -128,19 +128,19 @@ export default function Results() {
       </div>
 
       {!selectedCompetition ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed glass-card">
           <CardContent className="py-12 text-center">
-            <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-foreground mb-1">Select a competition</h3>
+            <Trophy className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="font-bold text-foreground mb-1 font-display">SELECT A BATTLE</h3>
             <p className="text-sm text-muted-foreground">Choose a competition to view results</p>
           </CardContent>
         </Card>
       ) : leaderboard.length === 0 ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed glass-card">
           <CardContent className="py-12 text-center">
-            <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-foreground mb-1">No submissions yet</h3>
-            <p className="text-sm text-muted-foreground">No students have submitted their answers</p>
+            <Zap className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="font-bold text-foreground mb-1 font-display">NO SUBMISSIONS YET</h3>
+            <p className="text-sm text-muted-foreground">No players have completed this battle</p>
           </CardContent>
         </Card>
       ) : (
@@ -149,18 +149,18 @@ export default function Results() {
             {leaderboard.slice(0, 3).map((entry, index) => (
               <Card 
                 key={entry.student_id} 
-                className={`border-2 ${
-                  index === 0 ? 'border-yellow-500/50 bg-yellow-50/50' :
-                  index === 1 ? 'border-gray-400/50 bg-gray-50/50' :
-                  'border-amber-600/50 bg-amber-50/50'
+                className={`glass-card border-2 ${
+                  index === 0 ? 'border-primary/70 shadow-neon' :
+                  index === 1 ? 'border-accent/50 shadow-accent' :
+                  'border-warning/50'
                 }`}
               >
                 <CardContent className="p-6 text-center">
                   <div className="mb-4">{getRankIcon(index + 1)}</div>
-                  <h3 className="font-semibold text-lg text-foreground">{entry.student_name}</h3>
-                  <p className="text-3xl font-bold mt-2 text-primary">
+                  <h3 className="font-bold text-lg text-foreground font-display">{entry.student_name}</h3>
+                  <p className="text-3xl font-bold mt-2 text-primary font-display">
                     {entry.total_marks}
-                    <span className="text-lg text-muted-foreground">/{maxMarks}</span>
+                    <span className="text-lg text-muted-foreground">/{maxMarks} pts</span>
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     {Math.round((entry.total_marks / maxMarks) * 100)}%
@@ -170,38 +170,38 @@ export default function Results() {
             ))}
           </div>
 
-          <Card className="border-border/50">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Full Leaderboard</CardTitle>
+              <CardTitle className="font-display">FULL RANKINGS</CardTitle>
             </CardHeader>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Rank</TableHead>
-                  <TableHead>Student Name</TableHead>
-                  <TableHead>Marks</TableHead>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Points</TableHead>
                   <TableHead>Percentage</TableHead>
                   <TableHead>Submitted At</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leaderboard.map((entry, index) => (
-                  <TableRow key={entry.student_id}>
+                  <TableRow key={entry.student_id} className="hover:bg-primary/5">
                     <TableCell>
                       <div className="flex items-center justify-center">
                         {getRankIcon(index + 1)}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{entry.student_name}</TableCell>
+                    <TableCell className="font-bold">{entry.student_name}</TableCell>
                     <TableCell>
-                      <span className="font-semibold text-primary">{entry.total_marks}</span>
+                      <span className="font-bold text-primary font-display">{entry.total_marks}</span>
                       <span className="text-muted-foreground">/{maxMarks}</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="w-24 h-2 bg-muted/50 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-primary rounded-full"
+                            className="h-full gradient-primary rounded-full"
                             style={{ width: `${(entry.total_marks / maxMarks) * 100}%` }}
                           />
                         </div>

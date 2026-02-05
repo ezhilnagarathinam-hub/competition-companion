@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Users, FileQuestion, ClipboardList, Plus, ArrowRight } from 'lucide-react';
+import { Trophy, Users, FileQuestion, ClipboardList, Plus, ArrowRight, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,23 +88,23 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Welcome back! Here's an overview of your test platform.</p>
+        <h1 className="text-3xl font-bold text-foreground font-display">COMMAND CENTER</h1>
+        <p className="text-muted-foreground mt-1">Welcome to <span className="neon-text font-bold">Compete Me</span> - Your competition headquarters</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="stat-card">
+          <Card key={stat.title} className="stat-card hover:shadow-neon transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-3xl font-bold mt-1 text-foreground">
+                  <p className="text-3xl font-bold mt-1 text-foreground font-display">
                     {loading ? '...' : stat.value}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-primary">
+                  <stat.icon className="w-6 h-6 text-primary-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -113,11 +113,11 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-border/50">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-primary" />
-              Quick Actions
+            <CardTitle className="flex items-center gap-2 font-display">
+              <Zap className="w-5 h-5 text-primary animate-glow" />
+              QUICK ACTIONS
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
@@ -125,12 +125,12 @@ export default function AdminDashboard() {
               <Link
                 key={action.path}
                 to={action.path}
-                className="flex items-center gap-3 p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
+                className="flex items-center gap-3 p-4 rounded-xl border border-border/50 hover:border-primary/50 hover:bg-primary/10 hover:shadow-primary transition-all duration-300 group"
               >
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <action.icon className="w-5 h-5 text-primary" />
+                <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center shadow-primary">
+                  <action.icon className="w-5 h-5 text-primary-foreground" />
                 </div>
-                <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                <span className="font-bold text-foreground group-hover:text-primary transition-colors">
                   {action.label}
                 </span>
               </Link>
@@ -138,30 +138,30 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Getting Started</span>
+            <CardTitle className="flex items-center justify-between font-display">
+              <span>GET STARTED</span>
               <ArrowRight className="w-5 h-5 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">1</div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="w-8 h-8 rounded-full gradient-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-primary">1</div>
                 <span className="text-sm text-foreground">Create a new competition with date and time</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">2</div>
-                <span className="text-sm text-foreground">Add questions with MCQ options and images</span>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="w-8 h-8 rounded-full gradient-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-primary">2</div>
+                <span className="text-sm text-foreground">Add questions (or use OCR import!)</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">3</div>
-                <span className="text-sm text-foreground">Enroll students - credentials auto-generated</span>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="w-8 h-8 rounded-full gradient-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-primary">3</div>
+                <span className="text-sm text-foreground">Enroll players & assign to competitions</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">4</div>
-                <span className="text-sm text-foreground">Activate competition when ready</span>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="w-8 h-8 rounded-full gradient-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-primary">4</div>
+                <span className="text-sm text-foreground">Go LIVE and let the battle begin!</span>
               </div>
             </div>
           </CardContent>
