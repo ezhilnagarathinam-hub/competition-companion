@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Users, Trash2, Edit, Eye, EyeOff, Copy, Trophy } from 'lucide-react';
+import { Plus, Users, Trash2, Edit, Eye, EyeOff, Copy, Trophy, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import type { Student, Competition } from '@/types/database';
 export default function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [studentCompetitions, setStudentCompetitions] = useState<Record<string, string[]>>({});
+  const [studentCompetitions, setStudentCompetitions] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,12 +48,12 @@ export default function Students() {
 
       const { data: scData } = await supabase
         .from('student_competitions')
-        .select('student_id, competition_id');
+        .select('student_id, competition_id, has_started, has_submitted');
       
-      const mappings: Record<string, string[]> = {};
+      const mappings: Record<string, any[]> = {};
       (scData || []).forEach((sc: any) => {
         if (!mappings[sc.student_id]) mappings[sc.student_id] = [];
-        mappings[sc.student_id].push(sc.competition_id);
+        mappings[sc.student_id].push(sc);
       });
       setStudentCompetitions(mappings);
     } catch (error) {
@@ -118,7 +118,6 @@ export default function Students() {
       }
 
       if (studentId) {
-        // Always clear existing assignments when editing
         if (editingId) {
           await supabase
             .from('student_competitions')
@@ -126,7 +125,6 @@ export default function Students() {
             .eq('student_id', studentId);
         }
 
-        // Insert new assignments if any selected
         if (selectedCompetitions.length > 0) {
           const assignments = selectedCompetitions.map(compId => ({
             student_id: studentId,
@@ -143,6 +141,42 @@ export default function Students() {
     } catch (error) {
       console.error('Error saving student:', error);
       toast.error('Failed to save player');
+    }
+  }
+
+  async function resetStudentCompetition(studentId: string, competitionId: string) {
+    if (!confirm('Reset this student\'s test? They will be able to retake the competition. All previous answers will be deleted.')) return;
+    
+    try {
+      // Reset the competition status
+      const { error: scError } = await supabase
+        .from('student_competitions')
+        .update({
+          has_started: false,
+          has_submitted: false,
+          started_at: null,
+          submitted_at: null,
+          total_marks: 0,
+        })
+        .eq('student_id', studentId)
+        .eq('competition_id', competitionId);
+
+      if (scError) throw scError;
+
+      // Delete previous answers
+      const { error: ansError } = await supabase
+        .from('student_answers')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('competition_id', competitionId);
+
+      if (ansError) throw ansError;
+
+      toast.success('Student test reset! They can now retake the competition.');
+      fetchStudents();
+    } catch (error) {
+      console.error('Error resetting student competition:', error);
+      toast.error('Failed to reset');
     }
   }
 
@@ -179,7 +213,7 @@ export default function Students() {
       password: student.password,
     });
     setEditingId(student.id);
-    setSelectedCompetitions(studentCompetitions[student.id] || []);
+    setSelectedCompetitions((studentCompetitions[student.id] || []).map((sc: any) => sc.competition_id));
     setDialogOpen(true);
   }
 
@@ -192,9 +226,12 @@ export default function Students() {
     toast.success('Credentials copied!');
   }
 
-  function getCompetitionNames(studentId: string): string[] {
-    const compIds = studentCompetitions[studentId] || [];
-    return compIds.map(id => competitions.find(c => c.id === id)?.name || '').filter(Boolean);
+  function getCompetitionInfo(studentId: string): { name: string; submitted: boolean; compId: string }[] {
+    const scs = studentCompetitions[studentId] || [];
+    return scs.map((sc: any) => {
+      const comp = competitions.find(c => c.id === sc.competition_id);
+      return { name: comp?.name || '', submitted: sc.has_submitted, compId: sc.competition_id };
+    }).filter(c => c.name);
   }
 
   function toggleCompetition(compId: string) {
@@ -320,10 +357,25 @@ export default function Students() {
                   <TableCell className="font-bold">{student.name}</TableCell>
                   <TableCell>{student.phone}</TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1 max-w-[200px]">
-                      {getCompetitionNames(student.id).length > 0 ? (
-                        getCompetitionNames(student.id).map((name, i) => (
-                          <Badge key={i} variant="outline" className="text-xs border-primary/50 text-primary">{name}</Badge>
+                    <div className="flex flex-wrap gap-1 max-w-[250px]">
+                      {getCompetitionInfo(student.id).length > 0 ? (
+                        getCompetitionInfo(student.id).map((info, i) => (
+                          <div key={i} className="flex items-center gap-1">
+                            <Badge variant="outline" className={`text-xs ${info.submitted ? 'border-accent/50 text-accent' : 'border-primary/50 text-primary'}`}>
+                              {info.name} {info.submitted ? '✓' : ''}
+                            </Badge>
+                            {info.submitted && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 text-warning hover:text-warning hover:bg-warning/10"
+                                title="Reset - allow retake"
+                                onClick={() => resetStudentCompetition(student.id, info.compId)}
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
                         ))
                       ) : (
                         <span className="text-xs text-muted-foreground">None</span>
