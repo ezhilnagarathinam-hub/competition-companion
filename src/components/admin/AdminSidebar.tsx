@@ -35,7 +35,7 @@ export function AdminSidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
       
-      <div className="p-6 border-b border-border">
+      <div className="p-6 border-b border-border relative z-10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-primary">
             <Zap className="w-5 h-5 text-primary-foreground" />
