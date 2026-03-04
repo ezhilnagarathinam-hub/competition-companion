@@ -25,13 +25,13 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background mx-0 gap-0 items-start justify-start flex flex-row">
       <AdminSidebar />
-      <main ref={mainRef} className="flex-1 ml-64 p-8 overflow-y-auto">
+      <main ref={mainRef} className="flex-1 ml-64 p-8 overflow-y-auto mx-0">
         <div className="max-w-7xl mx-auto">
           <Outlet />
         </div>
       </main>
-    </div>
-  );
+    </div>);
+
 }
