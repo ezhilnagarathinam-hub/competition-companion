@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Image, Trash2, Edit, FileQuestion, Upload, FileImage, Loader2, Sparkles, Copy, ArrowUp, ArrowDown, BookOpen } from 'lucide-react';
+import { Plus, Image, Trash2, Edit, FileQuestion, Upload, FileImage, Loader2, Sparkles, Copy, ArrowUp, ArrowDown, BookOpen, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ export default function Questions() {
   const [uploading, setUploading] = useState(false);
   const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [aiParsing, setAiParsing] = useState(false);
   
   const [formData, setFormData] = useState({
     question_text: '',
@@ -183,6 +184,55 @@ export default function Questions() {
     toast.info('Question copied — save to add as new');
   }
 
+  async function handleAiParse() {
+    const text = formData.question_text.trim();
+    if (text.length < 15) {
+      toast.error('Paste more content for AI to parse (question + options + answer)');
+      return;
+    }
+
+    setAiParsing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-question`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'AI parsing failed');
+      }
+
+      const { parsed } = await response.json();
+      if (!parsed) {
+        toast.error('Could not parse the text. Try a clearer format.');
+        return;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        question_text: parsed.question_text || prev.question_text,
+        option_a: parsed.option_a || prev.option_a,
+        option_b: parsed.option_b || prev.option_b,
+        option_c: parsed.option_c || prev.option_c,
+        option_d: parsed.option_d || prev.option_d,
+        correct_answer: (['A', 'B', 'C', 'D'].includes(parsed.correct_answer) ? parsed.correct_answer : prev.correct_answer) as 'A' | 'B' | 'C' | 'D',
+        explanation: parsed.explanation || prev.explanation,
+      }));
+
+      toast.success('AI parsed successfully! Review & save.');
+    } catch (error) {
+      console.error('AI parse error:', error);
+      toast.error(error instanceof Error ? error.message : 'AI parsing failed');
+    } finally {
+      setAiParsing(false);
+    }
+  }
+
   function resetForm() {
     setFormData({
       question_text: '',
@@ -248,7 +298,6 @@ export default function Questions() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Accept images, PDFs, and Word docs
     const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     const isAllowed = allowedTypes.some(type => file.type.startsWith(type));
     
@@ -404,10 +453,28 @@ export default function Questions() {
                     id="question"
                     value={formData.question_text}
                     onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
-                    placeholder="உங்கள் கேள்வியை இங்கே உள்ளிடவும் / Enter your question here..."
-                    rows={3}
+                    placeholder="Paste entire question with options, answer & explanation here — then click AI Parse ✨ to auto-fill all fields"
+                    rows={5}
                     required
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAiParse}
+                    disabled={aiParsing || formData.question_text.trim().length < 15}
+                    className="border-accent/50 text-accent hover:bg-accent/10"
+                  >
+                    {aiParsing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-4 h-4 mr-2" />
+                    )}
+                    {aiParsing ? 'Parsing...' : 'AI Parse ✨'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Tip: Paste question + options + answer + explanation all at once, then click AI Parse to auto-fill everything.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -538,7 +605,7 @@ export default function Questions() {
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   {/* Reorder buttons */}
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1 items-center">
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={index === 0} onClick={() => moveQuestion(index, 'up')}>
                       <ArrowUp className="w-4 h-4" />
                     </Button>
@@ -550,7 +617,7 @@ export default function Questions() {
                     </Button>
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-foreground mb-3">{q.question_text}</p>
+                    <p className="font-medium text-foreground mb-3 whitespace-pre-wrap">{q.question_text}</p>
                     {q.image_url && (
                       <img 
                         src={q.image_url} 

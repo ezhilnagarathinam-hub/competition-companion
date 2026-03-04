@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -17,6 +18,8 @@ export default function Competitions() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours'>('minutes');
+  const [durationValue, setDurationValue] = useState(60);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -48,6 +51,13 @@ export default function Competitions() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleDurationChange(value: number, unit: 'minutes' | 'hours') {
+    setDurationValue(value);
+    setDurationUnit(unit);
+    const minutes = unit === 'hours' ? Math.round(value * 60) : value;
+    setFormData(prev => ({ ...prev, duration_minutes: minutes }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -155,6 +165,19 @@ export default function Competitions() {
     }
   }
 
+  function formatDuration(minutes: number): string {
+    if (minutes >= 60 && minutes % 60 === 0) {
+      const hrs = minutes / 60;
+      return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+    }
+    if (minutes > 60) {
+      const hrs = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${hrs}h ${mins}m`;
+    }
+    return `${minutes} min`;
+  }
+
   function resetForm() {
     setFormData({
       name: '',
@@ -166,6 +189,8 @@ export default function Competitions() {
       primary_color: '#0D9488',
       secondary_color: '#F59E0B',
     });
+    setDurationUnit('minutes');
+    setDurationValue(60);
     setEditingId(null);
   }
 
@@ -180,6 +205,14 @@ export default function Competitions() {
       primary_color: comp.primary_color,
       secondary_color: comp.secondary_color,
     });
+    // Set duration display
+    if (comp.duration_minutes >= 60 && comp.duration_minutes % 60 === 0) {
+      setDurationUnit('hours');
+      setDurationValue(comp.duration_minutes / 60);
+    } else {
+      setDurationUnit('minutes');
+      setDurationValue(comp.duration_minutes);
+    }
     setEditingId(comp.id);
     setDialogOpen(true);
   }
@@ -240,15 +273,30 @@ export default function Competitions() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="duration">Duration (minutes)</Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    min="1"
-                    value={formData.duration_minutes}
-                    onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
-                    required
-                  />
+                  <Label>Duration</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      step={durationUnit === 'hours' ? '0.5' : '1'}
+                      value={durationValue}
+                      onChange={(e) => handleDurationChange(parseFloat(e.target.value) || 0, durationUnit)}
+                      className="flex-1"
+                      required
+                    />
+                    <Select value={durationUnit} onValueChange={(v: 'minutes' | 'hours') => {
+                      const newValue = v === 'hours' ? durationValue / 60 : durationValue * 60;
+                      handleDurationChange(Math.max(v === 'hours' ? 0.5 : 1, newValue), v);
+                    }}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="minutes">Min</SelectItem>
+                        <SelectItem value="hours">Hrs</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
@@ -361,7 +409,7 @@ export default function Competitions() {
                         <Clock className="w-4 h-4" />
                         {comp.start_time} - {comp.end_time}
                       </span>
-                      <span>{comp.duration_minutes} min</span>
+                      <span>{formatDuration(comp.duration_minutes)}</span>
                     </div>
                   </div>
 

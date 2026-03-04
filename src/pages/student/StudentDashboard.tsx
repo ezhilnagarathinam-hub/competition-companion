@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Calendar, Clock, Play, CheckCircle, Lock, Zap, Eye } from 'lucide-react';
+import { Trophy, Calendar, Clock, Play, CheckCircle, Lock, Zap, Eye, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,12 +12,14 @@ import { format, isToday, parseISO } from 'date-fns';
 
 interface CompetitionWithStatus extends Competition {
   studentStatus?: StudentCompetition;
+  isEnrolled: boolean;
 }
 
 export default function StudentDashboard() {
   const { studentId } = useStudentAuth();
   const [competitions, setCompetitions] = useState<CompetitionWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,32 +30,46 @@ export default function StudentDashboard() {
 
   async function fetchCompetitions() {
     try {
+      // Fetch all active competitions
+      const { data: allComps, error: compError } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('is_active', true)
+        .order('date', { ascending: false });
+
+      if (compError) throw compError;
+
+      // Fetch student's enrollments
       const { data: enrollments, error: enrollError } = await supabase
         .from('student_competitions')
-        .select(`
-          *,
-          competitions!inner(*)
-        `)
+        .select('*')
         .eq('student_id', studentId);
 
       if (enrollError) throw enrollError;
 
-      const compsWithStatus: CompetitionWithStatus[] = ((enrollments || []) as any[])
-        .filter((e) => e.competitions?.is_active)
-        .map((e) => ({
-          ...(e.competitions as Competition),
-          studentStatus: {
-            id: e.id,
-            student_id: e.student_id,
-            competition_id: e.competition_id,
-            has_started: e.has_started,
-            has_submitted: e.has_submitted,
-            started_at: e.started_at,
-            submitted_at: e.submitted_at,
-            total_marks: e.total_marks,
-            is_locked: e.is_locked ?? false,
-          } as StudentCompetition,
-        }));
+      const enrollmentMap = new Map<string, any>();
+      (enrollments || []).forEach((e: any) => {
+        enrollmentMap.set(e.competition_id, e);
+      });
+
+      const compsWithStatus: CompetitionWithStatus[] = ((allComps || []) as Competition[]).map((comp) => {
+        const enrollment = enrollmentMap.get(comp.id);
+        return {
+          ...comp,
+          isEnrolled: !!enrollment,
+          studentStatus: enrollment ? {
+            id: enrollment.id,
+            student_id: enrollment.student_id,
+            competition_id: enrollment.competition_id,
+            has_started: enrollment.has_started,
+            has_submitted: enrollment.has_submitted,
+            started_at: enrollment.started_at,
+            submitted_at: enrollment.submitted_at,
+            total_marks: enrollment.total_marks,
+            is_locked: enrollment.is_locked ?? false,
+          } as StudentCompetition : undefined,
+        };
+      });
 
       setCompetitions(compsWithStatus);
     } catch (error) {
@@ -65,9 +81,8 @@ export default function StudentDashboard() {
   }
 
   function canStartTest(comp: CompetitionWithStatus): boolean {
-    // If locked by admin, cannot start
+    if (!comp.isEnrolled) return false;
     if (comp.studentStatus?.is_locked) return false;
-    // If already submitted, cannot start
     if (comp.studentStatus?.has_submitted) return false;
     
     const now = new Date();
@@ -87,6 +102,19 @@ export default function StudentDashboard() {
     return now >= startTime && now <= endTime;
   }
 
+  function formatDuration(minutes: number): string {
+    if (minutes >= 60 && minutes % 60 === 0) {
+      const hrs = minutes / 60;
+      return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+    }
+    if (minutes > 60) {
+      const hrs = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${hrs}h ${mins}m`;
+    }
+    return `${minutes} min`;
+  }
+
   async function handleStartTest(competitionId: string) {
     try {
       const { data: existing } = await supabase
@@ -97,16 +125,8 @@ export default function StudentDashboard() {
         .maybeSingle();
 
       if (!existing) {
-        const { error } = await supabase
-          .from('student_competitions')
-          .insert([{
-            student_id: studentId,
-            competition_id: competitionId,
-            has_started: true,
-            started_at: new Date().toISOString(),
-          }]);
-        
-        if (error) throw error;
+        toast.error('You are not enrolled in this competition');
+        return;
       } else if (!existing.has_started) {
         const { error } = await supabase
           .from('student_competitions')
@@ -150,9 +170,10 @@ export default function StudentDashboard() {
             const hasSubmitted = comp.studentStatus?.has_submitted;
             const hasStarted = comp.studentStatus?.has_started;
             const isLocked = comp.studentStatus?.is_locked;
+            const isEnrolled = comp.isEnrolled;
 
             return (
-              <Card key={comp.id} className="glass-card overflow-hidden hover:border-primary/50 transition-all">
+              <Card key={comp.id} className={`glass-card overflow-hidden transition-all ${isEnrolled ? 'hover:border-primary/50' : 'opacity-80'}`}>
                 <div
                   className="h-2 shadow-lg"
                   style={{ backgroundColor: comp.primary_color }}
@@ -160,7 +181,14 @@ export default function StudentDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-bold text-lg text-foreground mb-2 font-display">{comp.name}</h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-bold text-lg text-foreground font-display">{comp.name}</h3>
+                        {!isEnrolled && (
+                          <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-muted text-muted-foreground">
+                            NOT ENROLLED
+                          </span>
+                        )}
+                      </div>
                       {comp.description && (
                         <p className="text-sm text-muted-foreground mb-3">{comp.description}</p>
                       )}
@@ -173,12 +201,21 @@ export default function StudentDashboard() {
                           <Clock className="w-4 h-4" />
                           {comp.start_time} - {comp.end_time}
                         </span>
-                        <span>{comp.duration_minutes} minutes</span>
+                        <span>{formatDuration(comp.duration_minutes)}</span>
                       </div>
                     </div>
 
                     <div className="ml-4">
-                      {isLocked ? (
+                      {!isEnrolled ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => setContactDialogOpen(true)}
+                          className="border-primary/30 hover:bg-primary/10"
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          Enroll Now
+                        </Button>
+                      ) : isLocked ? (
                         <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive/20 text-destructive border border-destructive/30">
                           <Lock className="w-5 h-5" />
                           <span className="font-bold">LOCKED</span>
@@ -218,6 +255,31 @@ export default function StudentDashboard() {
           })}
         </div>
       )}
+
+      {/* Contact Dialog for non-enrolled students */}
+      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+        <DialogContent className="glass-card text-center">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">ENROLL IN THIS COMPETITION</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <Phone className="w-16 h-16 mx-auto text-primary" />
+            <p className="text-foreground text-lg">
+              Contact our team to get enrolled into this competition
+            </p>
+            <a 
+              href="tel:9487277924"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-lg shadow-primary"
+            >
+              <Phone className="w-5 h-5" />
+              9487277924
+            </a>
+            <p className="text-sm text-muted-foreground">
+              Call or WhatsApp us to register
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card className="glass-card">
         <CardHeader>
@@ -284,7 +346,6 @@ function StudentResults() {
 
       if (error) throw error;
       
-      // Sort by question_number client-side
       const sorted = (answers || []).sort((a: any, b: any) => 
         (a.questions?.question_number || 0) - (b.questions?.question_number || 0)
       );
@@ -393,7 +454,7 @@ function StudentResults() {
                         {q.question_number}
                       </div>
                       <div className="flex-1">
-                        <p className="text-foreground font-medium">{q.question_text}</p>
+                        <p className="text-foreground font-medium whitespace-pre-wrap">{q.question_text}</p>
                         {q.image_url && (
                           <img src={q.image_url} alt="Question" className="mt-2 max-h-24 rounded-lg" />
                         )}
