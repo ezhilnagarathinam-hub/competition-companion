@@ -20,6 +20,7 @@ export default function TestInterface() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState<Array<{ student_id: string; name: string; total_marks: number; current_question: number | null }>>([]);
   const [readyDialogOpen, setReadyDialogOpen] = useState(true);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -31,6 +32,21 @@ export default function TestInterface() {
       fetchTestData();
     }
   }, [competitionId, studentId]);
+
+  // Poll other players when in multiplayer mode / leaderboard visible
+  useEffect(() => {
+    let poll: NodeJS.Timeout | null = null;
+    const startPolling = () => {
+      fetchPlayers();
+      poll = setInterval(fetchPlayers, 5000);
+    };
+
+    if (competition?.show_leaderboard) {
+      startPolling();
+    }
+
+    return () => { if (poll) clearInterval(poll); };
+  }, [competition, competitionId]);
 
   useEffect(() => {
     if (hasStarted && timeLeft > 0) {
@@ -115,6 +131,67 @@ export default function TestInterface() {
       navigate('/student');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Fetch players' progress and marks for multiplayer UI
+  async function fetchPlayers() {
+    if (!competitionId) return;
+    try {
+      // Get student_competitions entries for this competition
+      const { data: scRows, error: scErr } = await supabase
+        .from('student_competitions')
+        .select('student_id,total_marks')
+        .eq('competition_id', competitionId)
+        .eq('has_started', true);
+
+      if (scErr) throw scErr;
+
+      const studentIds = (scRows || []).map((r: any) => r.student_id);
+      if (studentIds.length === 0) {
+        setPlayers([]);
+        return;
+      }
+
+      // Fetch student names
+      const { data: studs, error: sErr } = await supabase
+        .from('students')
+        .select('id,name')
+        .in('id', studentIds as string[]);
+
+      if (sErr) throw sErr;
+
+      // Fetch latest answered question numbers per student
+      const { data: qData, error: qErr } = await supabase
+        .from('student_answers')
+        .select('student_id,questions(question_number)')
+        .eq('competition_id', competitionId)
+        .in('student_id', studentIds as string[])
+        .order('created_at', { ascending: false });
+
+      // Build current question per student by finding max question_number among answers
+      const currentMap = new Map<string, number | null>();
+      (qData || []).forEach((row: any) => {
+        const sid = row.student_id as string;
+        const qn = row.questions?.question_number as number | undefined;
+        if (!qn) return;
+        const prev = currentMap.get(sid) || 0;
+        if (qn > (prev as number)) currentMap.set(sid, qn);
+      });
+
+      const playerList = (scRows as any[]).map((r) => {
+        const stud = (studs || []).find((s: any) => s.id === r.student_id) || { name: r.student_id };
+        return {
+          student_id: r.student_id,
+          name: stud.name || r.student_id,
+          total_marks: r.total_marks || 0,
+          current_question: currentMap.get(r.student_id) ?? null,
+        };
+      });
+
+      setPlayers(playerList);
+    } catch (error) {
+      console.error('Error fetching players:', error);
     }
   }
 
@@ -476,50 +553,75 @@ export default function TestInterface() {
               {/* Question Navigator */}
               <div className="lg:col-span-1">
                 <Card className="border-border/50 sticky top-24">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium text-foreground mb-4">Question Navigator</h3>
-                    <div className="grid grid-cols-5 gap-2">
-                      {questions.map((q, idx) => {
-                        const ans = answers.get(q.id);
-                        const isAnswered = !!ans?.selected_answer;
-                        const isReview = ans?.is_marked_for_review;
-                        const isCurrent = idx === currentIndex;
-                        
-                        return (
-                          <button
-                            key={q.id}
-                            onClick={() => setCurrentIndex(idx)}
-                            className={`question-nav-btn ${
-                              isReview ? 'review' : isAnswered ? 'answered' : 'unanswered'
-                            } ${isCurrent ? 'current' : ''}`}
-                          >
-                            {idx + 1}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <CardContent className="p-4 space-y-4">
+                    {/* Players Panel (multiplayer) */}
+                    {competition?.show_leaderboard && (
+                      <div>
+                        <h3 className="font-medium text-foreground mb-3">Players</h3>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {players.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No players active</p>
+                          ) : (
+                            players.map((p) => (
+                              <div key={p.student_id} className={`p-2 rounded border ${p.student_id === studentId ? 'bg-primary/10 border-primary' : 'bg-card border-border'}`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm font-medium">{p.name}</div>
+                                  <div className="text-xs text-muted-foreground">{p.total_marks} pts</div>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">Q: {p.current_question ?? '-'} </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                    <div className="mt-4 pt-4 border-t border-border space-y-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded bg-muted" />
-                        <span className="text-muted-foreground">Not Answered</span>
+                    {/* Question Navigator */}
+                    <div>
+                      <h3 className="font-medium text-foreground mb-4">Question Navigator</h3>
+                      <div className="grid grid-cols-5 gap-2">
+                        {questions.map((q, idx) => {
+                          const ans = answers.get(q.id);
+                          const isAnswered = !!ans?.selected_answer;
+                          const isReview = ans?.is_marked_for_review;
+                          const isCurrent = idx === currentIndex;
+                          
+                          return (
+                            <button
+                              key={q.id}
+                              onClick={() => setCurrentIndex(idx)}
+                              className={`question-nav-btn ${
+                                isReview ? 'review' : isAnswered ? 'answered' : 'unanswered'
+                              } ${isCurrent ? 'current' : ''}`}
+                            >
+                              {idx + 1}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded bg-primary" />
-                        <span className="text-muted-foreground">Answered</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded bg-warning" />
-                        <span className="text-muted-foreground">Marked for Review</span>
-                      </div>
-                    </div>
 
-                    <Button
-                      onClick={handleFinalSubmit}
-                      className="w-full mt-4 gradient-primary text-primary-foreground"
-                    >
-                      Submit Test
-                    </Button>
+                      <div className="mt-4 pt-4 border-t border-border space-y-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded bg-muted" />
+                          <span className="text-muted-foreground">Not Answered</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded bg-primary" />
+                          <span className="text-muted-foreground">Answered</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded bg-warning" />
+                          <span className="text-muted-foreground">Marked for Review</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleFinalSubmit}
+                        className="w-full mt-4 gradient-primary text-primary-foreground"
+                      >
+                        Submit Test
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
