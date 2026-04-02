@@ -209,6 +209,7 @@ export default function Results() {
                   <TableHead>Player</TableHead>
                   <TableHead>Points</TableHead>
                   <TableHead>Percentage</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Submitted At</TableHead>
                 </TableRow>
               </TableHeader>
