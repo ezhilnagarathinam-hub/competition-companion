@@ -304,12 +304,18 @@ export default function TestInterface() {
     toast.success('Answer cleared');
   };
 
+  const [timeExpired, setTimeExpired] = useState(false);
+
   const handleAutoSubmit = async () => {
-    toast.warning('Time is up! Submitting your test...');
-    await submitTest();
+    setTimeExpired(true);
+    toast.error('Time is up! You cannot submit the test as time has ended. Contact Admin for recovery.');
   };
 
   const submitTest = async () => {
+    if (timeExpired) {
+      toast.error('You cannot submit the test as time has ended. Contact Admin for recovery.');
+      return;
+    }
     try {
       // Calculate total marks
       let totalMarks = 0;
@@ -326,6 +332,7 @@ export default function TestInterface() {
           has_submitted: true,
           submitted_at: new Date().toISOString(),
           total_marks: totalMarks,
+          is_locked: true,
         })
         .eq('student_id', studentId)
         .eq('competition_id', competitionId);
