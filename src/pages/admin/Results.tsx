@@ -238,6 +238,17 @@ export default function Results() {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      {entry.isLate ? (
+                        <span className="px-2 py-1 text-xs font-bold rounded-full bg-destructive/20 text-destructive">
+                          LATE
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-bold rounded-full bg-accent/20 text-accent">
+                          ON TIME
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {entry.submitted_at 
                         ? new Date(entry.submitted_at).toLocaleString() 
