@@ -11,6 +11,7 @@ interface LeaderboardEntry {
   student_name: string;
   total_marks: number;
   submitted_at: string | null;
+  isLate?: boolean;
 }
 
 export default function Results() {
@@ -67,12 +68,20 @@ export default function Results() {
 
   async function fetchLeaderboard(competitionId: string) {
     try {
+      // Get competition details for time checking
+      const { data: compData } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('id', competitionId)
+        .single();
+
       const { data: submissions, error: subError } = await supabase
         .from('student_competitions')
         .select(`
           student_id,
           total_marks,
           submitted_at,
+          started_at,
           students!inner(name)
         `)
         .eq('competition_id', competitionId)
@@ -81,12 +90,26 @@ export default function Results() {
 
       if (subError) throw subError;
 
-      const entries: LeaderboardEntry[] = (submissions || []).map((s: any) => ({
-        student_id: s.student_id,
-        student_name: s.students?.name || 'Unknown',
-        total_marks: s.total_marks || 0,
-        submitted_at: s.submitted_at,
-      }));
+      const entries: LeaderboardEntry[] = (submissions || []).map((s: any) => {
+        // Check if submission was late
+        let isLate = false;
+        if (compData && s.started_at && s.submitted_at) {
+          const startedAt = new Date(s.started_at).getTime();
+          const submittedAt = new Date(s.submitted_at).getTime();
+          const durationMs = compData.duration_minutes * 60 * 1000;
+          // 30s grace period
+          if (submittedAt - startedAt > durationMs + 30000) {
+            isLate = true;
+          }
+        }
+        return {
+          student_id: s.student_id,
+          student_name: s.students?.name || 'Unknown',
+          total_marks: s.total_marks || 0,
+          submitted_at: s.submitted_at,
+          isLate,
+        };
+      });
 
       setLeaderboard(entries);
     } catch (error) {
@@ -186,6 +209,7 @@ export default function Results() {
                   <TableHead>Player</TableHead>
                   <TableHead>Points</TableHead>
                   <TableHead>Percentage</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Submitted At</TableHead>
                 </TableRow>
               </TableHeader>
@@ -214,6 +238,17 @@ export default function Results() {
                           {safePercentage(entry.total_marks, maxMarks)}%
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {entry.isLate ? (
+                        <span className="px-2 py-1 text-xs font-bold rounded-full bg-destructive/20 text-destructive">
+                          LATE
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-bold rounded-full bg-accent/20 text-accent">
+                          ON TIME
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {entry.submitted_at 

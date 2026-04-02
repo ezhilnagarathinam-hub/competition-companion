@@ -304,12 +304,18 @@ export default function TestInterface() {
     toast.success('Answer cleared');
   };
 
+  const [timeExpired, setTimeExpired] = useState(false);
+
   const handleAutoSubmit = async () => {
-    toast.warning('Time is up! Submitting your test...');
-    await submitTest();
+    setTimeExpired(true);
+    toast.error('Time is up! You cannot submit the test as time has ended. Contact Admin for recovery.');
   };
 
   const submitTest = async () => {
+    if (timeExpired) {
+      toast.error('You cannot submit the test as time has ended. Contact Admin for recovery.');
+      return;
+    }
     try {
       // Calculate total marks
       let totalMarks = 0;
@@ -326,6 +332,7 @@ export default function TestInterface() {
           has_submitted: true,
           submitted_at: new Date().toISOString(),
           total_marks: totalMarks,
+          is_locked: true,
         })
         .eq('student_id', studentId)
         .eq('competition_id', competitionId);
@@ -339,6 +346,10 @@ export default function TestInterface() {
   };
 
   const handleFinalSubmit = () => {
+    if (timeExpired) {
+      toast.error('You cannot submit the test as time has ended. Contact Admin for recovery.');
+      return;
+    }
     setSubmitDialogOpen(true);
   };
 
@@ -434,6 +445,20 @@ export default function TestInterface() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {timeExpired && (
+        <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center">
+          <Card className="max-w-md p-8 text-center glass-card border-destructive/50">
+            <AlertTriangle className="w-16 h-16 mx-auto text-destructive mb-4" />
+            <h2 className="text-2xl font-bold text-destructive font-display mb-2">TIME ENDED</h2>
+            <p className="text-foreground mb-4">You cannot submit the test as time has ended.</p>
+            <p className="text-muted-foreground mb-6">Contact Admin for recovery.</p>
+            <Button onClick={() => navigate('/student')} variant="outline">
+              Go Back to Dashboard
+            </Button>
+          </Card>
+        </div>
+      )}
 
       {hasStarted && (
         <>
