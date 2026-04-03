@@ -286,8 +286,6 @@ export default function StudentDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Leaderboard Section */}
-      <StudentLeaderboard studentId={studentId} />
 
       <Card className="glass-card">
         <CardHeader>
