@@ -26,6 +26,7 @@ export default function Competitions() {
     name: '',
     description: '',
     date: '',
+    end_date: '',
     start_time: '',
     end_time: '',
     duration_minutes: 60,
@@ -66,16 +67,24 @@ export default function Competitions() {
     
     try {
       if (editingId) {
+        const submitData = {
+          ...formData,
+          end_date: formData.end_date || formData.date || null,
+        };
         const { error } = await supabase
           .from('competitions')
-          .update(formData)
+          .update(submitData)
           .eq('id', editingId);
         if (error) throw error;
         toast.success('Competition updated successfully');
       } else {
+        const submitData = {
+          ...formData,
+          end_date: formData.end_date || formData.date || null,
+        };
         const { error } = await supabase
           .from('competitions')
-          .insert([formData]);
+          .insert([submitData]);
         if (error) throw error;
         toast.success('Competition created successfully');
       }
@@ -184,6 +193,7 @@ export default function Competitions() {
       name: '',
       description: '',
       date: '',
+      end_date: '',
       start_time: '',
       end_time: '',
       duration_minutes: 60,
@@ -200,6 +210,7 @@ export default function Competitions() {
       name: comp.name,
       description: comp.description || '',
       date: comp.date,
+      end_date: comp.end_date || comp.date,
       start_time: comp.start_time,
       end_time: comp.end_time,
       duration_minutes: comp.duration_minutes,
@@ -262,15 +273,25 @@ export default function Competitions() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
+                  <Label htmlFor="date">Start Date</Label>
                   <Input
                     id="date"
                     type="date"
                     value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value, end_date: formData.end_date || e.target.value })}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">End Date</Label>
+                  <Input
+                    id="end_date"
+                    type="date"
+                    value={formData.end_date || formData.date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    min={formData.date}
                   />
                 </div>
                 <div className="space-y-2">
@@ -404,7 +425,10 @@ export default function Competitions() {
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        {format(new Date(comp.date), 'MMM dd, yyyy')}
+                        {comp.end_date && comp.end_date !== comp.date
+                          ? `${format(new Date(comp.date), 'MMM dd')} – ${format(new Date(comp.end_date), 'MMM dd, yyyy')}`
+                          : format(new Date(comp.date), 'MMM dd, yyyy')
+                        }
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
