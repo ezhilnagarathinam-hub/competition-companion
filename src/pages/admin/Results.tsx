@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Trophy, Medal, Award, Zap, ChevronDown, Users } from 'lucide-react';
+import { Trophy, Medal, Award, Zap, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { formatTime12 } from '@/lib/timeFormat';
 import type { Competition } from '@/types/database';
 
 interface LeaderboardEntry {
@@ -267,7 +266,7 @@ export default function Results() {
   }
 
   const compsWithSubmissions = competitions.filter(c => c.submission_count > 0);
-  const compsWithoutSubmissions = competitions.filter(c => c.submission_count === 0);
+  
 
   return (
     <div className="space-y-6 animate-fade-in">
